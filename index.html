@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Research Agent Workspace</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <style>
+    :root {
+      --page: #f6f4ef;
+      --surface: #fffdf8;
+      --surface-2: #f0eee7;
+      --ink: #1d2527;
+      --muted: #687174;
+      --line: #d9d5c9;
+      --teal: #0f766e;
+      --teal-dark: #115e59;
+      --amber: #b45309;
+      --rose: #be123c;
+      --green: #15803d;
+      --blue: #2563eb;
+      --shadow: 0 16px 40px rgba(36, 40, 38, 0.10);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+    }
+    button, input, select, textarea { font: inherit; }
+    button { border: 0; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.58; }
+    .app-shell {
+      display: grid;
+      grid-template-columns: 292px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .sidebar {
+      background: #263331;
+      color: #eef3ef;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      border-right: 1px solid rgba(255,255,255,0.1);
+    }
+    .brand { display: grid; gap: 8px; }
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: #d97706;
+      color: #fff7ed;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    .brand p {
+      margin: 0;
+      color: #b8c7c2;
+      font-size: 0.86rem;
+      line-height: 1.5;
+    }
+    .nav {
+      display: grid;
+      gap: 8px;
+    }
+    .nav button {
+      color: #dbe7e2;
+      background: transparent;
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav button.active,
+    .nav button:hover {
+      background: rgba(255,255,255,0.10);
+      color: #fff;
+    }
+    .sidebar-panel {
+      border-top: 1px solid rgba(255,255,255,0.13);
+      padding-top: 18px;
+      display: grid;
+      gap: 10px;
+    }
+    .sidebar-label {
+      color: #b8c7c2;
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .metric {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .metric strong { display: block; font-size: 1.2rem; }
+    .metric span { color: #bfd0ca; font-size: 0.75rem; }
+    .main {
+      padding: 28px;
+      min-width: 0;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+    .topbar h2 {
+      margin: 0 0 6px;
+      font-size: clamp(1.55rem, 4vw, 2.45rem);
+      letter-spacing: 0;
+      line-height: 1.05;
+    }
+    .topbar p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 760px;
+      line-height: 1.5;
+    }
+    .health {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      padding: 8px 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(36, 40, 38, 0.05);
+    }
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--amber);
+    }
+    .dot.ok { background: var(--green); }
+    .dot.error { background: var(--rose); }
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .panel-header {
+      padding: 18px 18px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .panel-title {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0;
+    }
+    .panel-body {
+      padding: 18px;
+    }
+    .form-grid {
+      display: grid;
+      gap: 14px;
+    }
+    label {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: block;
+      margin-bottom: 7px;
+    }
+    input, select, textarea {
+      width: 100%;
+      color: var(--ink);
+      background: #fffefa;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 12px;
+      outline: none;
+      min-height: 42px;
+    }
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+    }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      min-height: 40px;
+      border-radius: 8px;
+      padding: 10px 14px;
+      background: var(--teal);
+      color: white;
+      font-weight: 750;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn:hover { background: var(--teal-dark); }
+    .btn.secondary {
+      background: #fffefa;
+      border: 1px solid var(--line);
+      color: var(--ink);
+    }
+    .btn.secondary:hover { background: var(--surface-2); }
+    .btn.danger {
+      background: #fff1f2;
+      border: 1px solid #fecdd3;
+      color: var(--rose);
+    }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border-radius: 8px;
+      background: #fffefa;
+      border: 1px solid var(--line);
+      color: var(--ink);
+    }
+    .status {
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: capitalize;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status.pending { background: #eff6ff; color: var(--blue); }
+    .status.done { background: #ecfdf5; color: var(--green); }
+    .status.error { background: #fff1f2; color: var(--rose); }
+    .status.blocked { background: #fffbeb; color: var(--amber); }
+    .report-view {
+      background: #fffcf3;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      white-space: pre-wrap;
+      line-height: 1.65;
+      max-height: 58vh;
+      overflow: auto;
+      font-size: 0.94rem;
+    }
+    .empty-state {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 26px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.45);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) 180px 180px auto;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .history-list {
+      display: grid;
+      gap: 10px;
+    }
+    .history-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .history-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .history-topic {
+      margin: 0;
+      font-size: 0.98rem;
+      line-height: 1.35;
+    }
+    .meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    .summary {
+      color: #4f5a5c;
+      line-height: 1.5;
+      font-size: 0.88rem;
+      margin: 0;
+    }
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .compare-column {
+      min-width: 0;
+      display: grid;
+      gap: 10px;
+    }
+    .diff-box {
+      background: #202826;
+      color: #dbe7e2;
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 240px;
+      max-height: 52vh;
+      overflow: auto;
+      white-space: pre-wrap;
+      line-height: 1.55;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+    }
+    .diff-add { color: #86efac; }
+    .diff-remove { color: #fda4af; }
+    .diff-meta { color: #fde68a; }
+    .session-feed {
+      display: grid;
+      gap: 10px;
+      max-height: 360px;
+      overflow: auto;
+    }
+    .message {
+      border-radius: 8px;
+      padding: 12px;
+      background: #fffcf3;
+      border: 1px solid var(--line);
+      line-height: 1.45;
+      font-size: 0.88rem;
+    }
+    .message.user {
+      background: #edfdfb;
+      border-color: #b7e4de;
+    }
+    .notice {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: #263331;
+      color: #fff;
+      border-radius: 8px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+      z-index: 10;
+    }
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.45);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 980px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static;
+        padding: 18px;
+      }
+      .workspace, .comparison-grid { grid-template-columns: 1fr; }
+      .toolbar { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      .main { padding: 18px; }
+      .topbar { flex-direction: column; }
+      .two-col, .toolbar { grid-template-columns: 1fr; }
+      .history-top { flex-direction: column; }
+      .actions .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    const { useEffect, useMemo, useRef, useState } = React;
+    const h = React.createElement;
+    const API = window.location.hostname === "localhost" ? "http://localhost:8000" : "";
+    const STORAGE_KEY = "research_agent_reports_v2";
+    const API_KEY_STORAGE = "research_agent_api_key";
+
+    function loadStoredReports() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      } catch (_e) {
+        return [];
+      }
+    }
+
+    function storeReports(reports) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(reports.slice(0, 60)));
+    }
+
+    function formatDate(value) {
+      if (!value) return "Just now";
+      return new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(value));
+    }
+
+    function wordCount(text) {
+      return (text || "").trim().split(/\s+/).filter(Boolean).length;
+    }
+
+    function shortId(id) {
+      return id ? id.slice(0, 8) : "local";
+    }
+
+    function makePreview(text) {
+      const compact = (text || "").replace(/\s+/g, " ").trim();
+      return compact.length > 220 ? compact.slice(0, 220) + "..." : compact;
+    }
+
+    function normalizeReport(data, fallback) {
+      return {
+        id: data.job_id || fallback.jobId,
+        jobId: fallback.jobId,
+        topic: data.topic || fallback.topic,
+        report: data.report || "",
+        status: data.status || "done",
+        outputFormat: fallback.outputFormat,
+        sessionId: fallback.sessionId,
+        createdAt: fallback.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        diff: data.diff || "",
+        structured: data.structured || null,
+        error: data.error || "",
+      };
+    }
+
+    function computeLineDiff(leftText, rightText) {
+      const left = (leftText || "").split("\\n");
+      const right = (rightText || "").split("\\n");
+      const rows = [];
+      const max = Math.max(left.length, right.length);
+      for (let i = 0; i < max; i += 1) {
+        if ((left[i] || "") === (right[i] || "")) {
+          if (left[i]) rows.push({ type: "same", text: "  " + left[i] });
+        } else {
+          if (left[i]) rows.push({ type: "remove", text: "- " + left[i] });
+          if (right[i]) rows.push({ type: "add", text: "+ " + right[i] });
+        }
+      }
+      return rows.length ? rows : [{ type: "same", text: "No line-level differences found." }];
+    }
+
+    function App() {
+      const [view, setView] = useState("workspace");
+      const [apiKey, setApiKey] = useState(localStorage.getItem(API_KEY_STORAGE) || "");
+      const [keySaved, setKeySaved] = useState(Boolean(localStorage.getItem(API_KEY_STORAGE)));
+      const [topic, setTopic] = useState("");
+      const [outputFormat, setOutputFormat] = useState("text");
+      const [sessionId, setSessionId] = useState("");
+      const [currentJob, setCurrentJob] = useState(null);
+      const [currentReport, setCurrentReport] = useState(null);
+      const [reports, setReports] = useState(loadStoredReports);
+      const [sessionMessages, setSessionMessages] = useState([]);
+      const [health, setHealth] = useState({ state: "checking", label: "Checking API" });
+      const [toast, setToast] = useState("");
+      const [query, setQuery] = useState("");
+      const [statusFilter, setStatusFilter] = useState("all");
+      const [formatFilter, setFormatFilter] = useState("all");
+      const [compareLeft, setCompareLeft] = useState("");
+      const [compareRight, setCompareRight] = useState("");
+      const pollRef = useRef(null);
+
+      useEffect(() => {
+        fetch(API + "/health")
+          .then((resp) => resp.json())
+          .then((data) => setHealth({
+            state: data.status === "ok" ? "ok" : "error",
+            label: data.status === "ok" ? "API online" : "API degraded",
+          }))
+          .catch(() => setHealth({ state: "error", label: "API offline" }));
+      }, []);
+
+      useEffect(() => {
+        storeReports(reports);
+        if (!compareLeft && reports[0]) setCompareLeft(reports[0].id);
+        if (!compareRight && reports[1]) setCompareRight(reports[1].id);
+      }, [reports, compareLeft, compareRight]);
+
+      useEffect(() => () => {
+        if (pollRef.current) window.clearInterval(pollRef.current);
+      }, []);
+
+      function notify(message) {
+        setToast(message);
+        window.setTimeout(() => setToast(""), 2600);
+      }
+
+      function authHeaders() {
+        return apiKey
+          ? { "Content-Type": "application/json", "X-API-Key": apiKey }
+          : { "Content-Type": "application/json" };
+      }
+
+      function saveApiKey() {
+        const next = apiKey.trim();
+        if (next) {
+          localStorage.setItem(API_KEY_STORAGE, next);
+          setKeySaved(true);
+          notify("API key saved");
+        } else {
+          localStorage.removeItem(API_KEY_STORAGE);
+          setKeySaved(false);
+          notify("API key cleared");
+        }
+      }
+
+      function upsertReport(report) {
+        setReports((items) => {
+          const without = items.filter((item) => item.id !== report.id);
+          return [report, ...without];
+        });
+      }
+
+      async function submitResearch(event) {
+        event.preventDefault();
+        const cleanTopic = topic.trim();
+        if (!cleanTopic) {
+          notify("Enter a research topic first");
+          return;
+        }
+        const createdAt = new Date().toISOString();
+        setCurrentReport(null);
+        setCurrentJob({ status: "pending", label: "Submitting", topic: cleanTopic, createdAt });
+
+        try {
+          const resp = await fetch(API + "/research", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({
+              topic: cleanTopic,
+              output_format: outputFormat,
+              session_id: sessionId.trim(),
+            }),
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.detail || "Research request failed");
+          }
+          const data = await resp.json();
+          setSessionId(data.session_id);
+          setCurrentJob({
+            status: "pending",
+            label: "Processing",
+            topic: cleanTopic,
+            jobId: data.job_id,
+            sessionId: data.session_id,
+            outputFormat,
+            createdAt,
+          });
+          if (pollRef.current) window.clearInterval(pollRef.current);
+          pollRef.current = window.setInterval(() => pollResult(data.job_id, {
+            topic: cleanTopic,
+            sessionId: data.session_id,
+            outputFormat,
+            createdAt,
+          }), 2800);
+          pollResult(data.job_id, {
+            topic: cleanTopic,
+            sessionId: data.session_id,
+            outputFormat,
+            createdAt,
+          });
+        } catch (error) {
+          setCurrentJob({ status: "error", label: error.message, topic: cleanTopic, createdAt });
+          upsertReport({
+            id: "error-" + Date.now(),
+            topic: cleanTopic,
+            report: "",
+            status: "error",
+            outputFormat,
+            sessionId,
+            createdAt,
+            updatedAt: new Date().toISOString(),
+            error: error.message,
+          });
+        }
+      }
+
+      async function pollResult(jobId, fallback) {
+        try {
+          const resp = await fetch(API + "/result/" + encodeURIComponent(jobId), { headers: authHeaders() });
+          const data = await resp.json();
+          if (data.status === "pending") return;
+          if (pollRef.current) window.clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          if (data.status === "done") {
+            const report = normalizeReport(data, { ...fallback, jobId });
+            setCurrentJob({ ...report, label: "Complete" });
+            setCurrentReport(report);
+            upsertReport(report);
+            loadSession(fallback.sessionId);
+            notify("Report complete");
+          } else {
+            const failed = normalizeReport(data, { ...fallback, jobId });
+            setCurrentJob({ ...failed, label: data.error || data.status });
+            upsertReport(failed);
+          }
+        } catch (_error) {
+          setHealth({ state: "error", label: "API offline" });
+        }
+      }
+
+      async function loadSession(id = sessionId) {
+        if (!id) return;
+        try {
+          const resp = await fetch(API + "/session/" + encodeURIComponent(id), { headers: authHeaders() });
+          const data = await resp.json();
+          setSessionMessages(data.messages || []);
+        } catch (_error) {
+          setSessionMessages([]);
+        }
+      }
+
+      async function loadServerDiff(item = currentReport) {
+        if (!item) return;
+        try {
+          const resp = await fetch(API + "/diff/" + encodeURIComponent(item.topic), { headers: authHeaders() });
+          const data = await resp.json();
+          setCurrentReport({ ...item, diff: data.diff || "No previous report found." });
+          notify("Comparison loaded");
+        } catch (_error) {
+          notify("Could not load server comparison");
+        }
+      }
+
+      function downloadPDF(item = currentReport) {
+        if (!item || !item.jobId) return;
+        const a = document.createElement("a");
+        a.href = API + "/result/" + encodeURIComponent(item.jobId) + "/pdf";
+        a.download = "report-" + item.jobId + ".pdf";
+        a.click();
+      }
+
+      function copyJSON(item = currentReport) {
+        if (!item) return;
+        navigator.clipboard.writeText(JSON.stringify({
+          report_id: item.jobId || item.id,
+          topic: item.topic,
+          report: item.report,
+          structured: item.structured || null,
+        }, null, 2)).then(() => notify("JSON copied"));
+      }
+
+      function startNewSession() {
+        setSessionId("");
+        setSessionMessages([]);
+        notify("Session reset");
+      }
+
+      function clearHistory() {
+        setReports([]);
+        localStorage.removeItem(STORAGE_KEY);
+        setCompareLeft("");
+        setCompareRight("");
+        notify("Report history cleared");
+      }
+
+      const filteredReports = useMemo(() => {
+        const needle = query.trim().toLowerCase();
+        return reports.filter((item) => {
+          const matchesText = !needle ||
+            item.topic.toLowerCase().includes(needle) ||
+            (item.report || "").toLowerCase().includes(needle) ||
+            (item.sessionId || "").toLowerCase().includes(needle);
+          const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+          const matchesFormat = formatFilter === "all" || item.outputFormat === formatFilter;
+          return matchesText && matchesStatus && matchesFormat;
+        });
+      }, [reports, query, statusFilter, formatFilter]);
+
+      const leftReport = reports.find((item) => item.id === compareLeft);
+      const rightReport = reports.find((item) => item.id === compareRight);
+      const localDiff = useMemo(() => {
+        if (!leftReport || !rightReport) return [];
+        return computeLineDiff(leftReport.report, rightReport.report);
+      }, [leftReport, rightReport]);
+
+      return h("div", { className: "app-shell" },
+        h(Sidebar, { view, setView, reports, currentJob, health }),
+        h("main", { className: "main" },
+          h("div", { className: "topbar" },
+            h("div", null,
+              h("h2", null, view === "workspace" ? "Research Workspace" : view === "history" ? "Report History" : "Comparison View"),
+              h("p", null, "Run multi-agent research, keep browser-side report history, search across completed work, and compare versions without leaving the dashboard.")
+            ),
+            h("div", { className: "health" },
+              h("span", { className: "dot " + health.state }),
+              h("span", null, health.label)
+            )
+          ),
+          view === "workspace" && h(WorkspaceView, {
+            apiKey, setApiKey, keySaved, saveApiKey, topic, setTopic,
+            outputFormat, setOutputFormat, sessionId, setSessionId,
+            currentJob, currentReport, submitResearch, downloadPDF,
+            copyJSON, loadServerDiff, sessionMessages, loadSession, startNewSession
+          }),
+          view === "history" && h(HistoryView, {
+            reports: filteredReports, allReports: reports, query, setQuery,
+            statusFilter, setStatusFilter, formatFilter, setFormatFilter,
+            setCurrentReport, setView, copyJSON, downloadPDF, clearHistory
+          }),
+          view === "compare" && h(CompareView, {
+            reports, compareLeft, setCompareLeft, compareRight, setCompareRight,
+            leftReport, rightReport, localDiff
+          }),
+          toast && h("div", { className: "toast" }, toast)
+        )
+      );
+    }
+
+    function Sidebar({ view, setView, reports, currentJob, health }) {
+      const completed = reports.filter((item) => item.status === "done").length;
+      const sessions = new Set(reports.map((item) => item.sessionId).filter(Boolean)).size;
+      return h("aside", { className: "sidebar" },
+        h("div", { className: "brand" },
+          h("div", { className: "brand-mark" }, "RA"),
+          h("h1", null, "Autonomous Research Agent"),
+          h("p", null, "LangGraph workflow with TensorZero routing, guardrails, memory, and evaluation.")
+        ),
+        h("nav", { className: "nav" },
+          h("button", { className: view === "workspace" ? "active" : "", onClick: () => setView("workspace") }, h("span", null, "⌁"), "Workspace"),
+          h("button", { className: view === "history" ? "active" : "", onClick: () => setView("history") }, h("span", null, "☰"), "History"),
+          h("button", { className: view === "compare" ? "active" : "", onClick: () => setView("compare") }, h("span", null, "⇄"), "Compare")
+        ),
+        h("div", { className: "sidebar-panel" },
+          h("div", { className: "sidebar-label" }, "Local Reports"),
+          h("div", { className: "metric-grid" },
+            h("div", { className: "metric" }, h("strong", null, reports.length), h("span", null, "saved")),
+            h("div", { className: "metric" }, h("strong", null, completed), h("span", null, "complete")),
+            h("div", { className: "metric" }, h("strong", null, sessions), h("span", null, "sessions")),
+            h("div", { className: "metric" }, h("strong", null, health.state === "ok" ? "On" : "Off"), h("span", null, "api"))
+          )
+        ),
+        currentJob && h("div", { className: "sidebar-panel" },
+          h("div", { className: "sidebar-label" }, "Current Job"),
+          h("div", { className: "notice" }, currentJob.topic),
+          h(StatusBadge, { status: currentJob.status, label: currentJob.label || currentJob.status })
+        )
+      );
+    }
+
+    function WorkspaceView(props) {
+      const busy = props.currentJob && props.currentJob.status === "pending";
+      return h("div", { className: "workspace" },
+        h("section", { className: "panel" },
+          h("div", { className: "panel-header" }, h("h3", { className: "panel-title" }, "New Research Job")),
+          h("div", { className: "panel-body" },
+            h("form", { className: "form-grid", onSubmit: props.submitResearch },
+              h("div", null,
+                h("label", { htmlFor: "api-key" }, "API Key"),
+                h("input", {
+                  id: "api-key",
+                  type: "password",
+                  value: props.apiKey,
+                  onChange: (e) => props.setApiKey(e.target.value),
+                  placeholder: "X-API-Key"
+                }),
+                h("div", { className: "notice", style: { marginTop: 6 } }, props.keySaved ? "Key saved in this browser." : "Authentication is optional when the API has no key configured.")
+              ),
+              h("button", { type: "button", className: "btn secondary", onClick: props.saveApiKey }, "Save key"),
+              h("div", null,
+                h("label", { htmlFor: "topic" }, "Research Topic"),
+                h("textarea", {
+                  id: "topic",
+                  value: props.topic,
+                  onChange: (e) => props.setTopic(e.target.value),
+                  placeholder: "Example: AI agents for security operations in regulated enterprises"
+                })
+              ),
+              h("div", { className: "two-col" },
+                h("div", null,
+                  h("label", { htmlFor: "format" }, "Output"),
+                  h("select", { id: "format", value: props.outputFormat, onChange: (e) => props.setOutputFormat(e.target.value) },
+                    h("option", { value: "text" }, "Text"),
+                    h("option", { value: "json" }, "Structured JSON"),
+                    h("option", { value: "pdf" }, "PDF-ready")
+                  )
+                ),
+                h("div", null,
+                  h("label", { htmlFor: "session" }, "Session ID"),
+                  h("input", {
+                    id: "session",
+                    value: props.sessionId,
+                    onChange: (e) => props.setSessionId(e.target.value),
+                    placeholder: "Auto-generated"
+                  })
+                )
+              ),
+              h("div", { className: "actions" },
+                h("button", { className: "btn", disabled: busy, type: "submit" }, busy && h("span", { className: "spinner" }), busy ? "Running" : "Start research"),
+                h("button", { className: "btn secondary", type: "button", onClick: props.startNewSession }, "New session"),
+                h("button", { className: "btn secondary", type: "button", onClick: () => props.loadSession() }, "Refresh session")
+              )
+            )
+          )
+        ),
+        h("section", { className: "panel" },
+          h("div", { className: "panel-header" },
+            h("div", null,
+              h("h3", { className: "panel-title" }, "Current Report"),
+              props.currentJob && h("div", { className: "meta", style: { marginTop: 8 } },
+                h(StatusBadge, { status: props.currentJob.status, label: props.currentJob.label || props.currentJob.status }),
+                props.currentJob.jobId && h("span", null, "Job " + shortId(props.currentJob.jobId)),
+                props.currentJob.sessionId && h("span", null, "Session " + shortId(props.currentJob.sessionId))
+              )
+            ),
+            props.currentReport && h("div", { className: "actions" },
+              h("button", { className: "icon-btn", title: "Download PDF", onClick: () => props.downloadPDF() }, "↓"),
+              h("button", { className: "icon-btn", title: "Copy JSON", onClick: () => props.copyJSON() }, "{}"),
+              h("button", { className: "icon-btn", title: "Load previous-report diff", onClick: () => props.loadServerDiff() }, "⇄")
+            )
+          ),
+          h("div", { className: "panel-body" },
+            props.currentReport
+              ? h(React.Fragment, null,
+                  h("div", { className: "report-view" }, props.currentReport.report),
+                  props.currentReport.diff && h("div", { style: { marginTop: 14 } },
+                    h("label", null, "Server Diff"),
+                    h(DiffBlock, { diff: props.currentReport.diff })
+                  )
+                )
+              : h("div", { className: "empty-state" }, busy ? "The research workflow is processing. Results will appear here automatically." : "Start a research job to see the report here.")
+          )
+        ),
+        h("section", { className: "panel", style: { gridColumn: "1 / -1" } },
+          h("div", { className: "panel-header" }, h("h3", { className: "panel-title" }, "Session Context")),
+          h("div", { className: "panel-body" },
+            props.sessionMessages.length
+              ? h("div", { className: "session-feed" }, props.sessionMessages.map((msg, index) =>
+                  h("div", { key: index, className: "message " + msg.role },
+                    h("strong", null, msg.role + ": "),
+                    msg.content
+                  )
+                ))
+              : h("div", { className: "empty-state" }, "No session messages loaded.")
+          )
+        )
+      );
+    }
+
+    function HistoryView({ reports, allReports, query, setQuery, statusFilter, setStatusFilter, formatFilter, setFormatFilter, setCurrentReport, setView, copyJSON, downloadPDF, clearHistory }) {
+      return h("section", { className: "panel" },
+        h("div", { className: "panel-header" },
+          h("h3", { className: "panel-title" }, "Saved Reports"),
+          allReports.length ? h("button", { className: "btn danger", onClick: clearHistory }, "Clear") : null
+        ),
+        h("div", { className: "panel-body" },
+          h("div", { className: "toolbar" },
+            h("input", { value: query, onChange: (e) => setQuery(e.target.value), placeholder: "Search topic, report, or session" }),
+            h("select", { value: statusFilter, onChange: (e) => setStatusFilter(e.target.value) },
+              h("option", { value: "all" }, "All status"),
+              h("option", { value: "done" }, "Complete"),
+              h("option", { value: "pending" }, "Pending"),
+              h("option", { value: "blocked" }, "Blocked"),
+              h("option", { value: "error" }, "Error")
+            ),
+            h("select", { value: formatFilter, onChange: (e) => setFormatFilter(e.target.value) },
+              h("option", { value: "all" }, "All formats"),
+              h("option", { value: "text" }, "Text"),
+              h("option", { value: "json" }, "JSON"),
+              h("option", { value: "pdf" }, "PDF")
+            ),
+            h("button", { className: "btn secondary", onClick: () => { setQuery(""); setStatusFilter("all"); setFormatFilter("all"); } }, "Reset")
+          ),
+          reports.length
+            ? h("div", { className: "history-list" }, reports.map((item) =>
+                h("article", { key: item.id, className: "history-item" },
+                  h("div", { className: "history-top" },
+                    h("div", null,
+                      h("h4", { className: "history-topic" }, item.topic),
+                      h("div", { className: "meta", style: { marginTop: 8 } },
+                        h(StatusBadge, { status: item.status }),
+                        h("span", null, formatDate(item.createdAt)),
+                        h("span", null, wordCount(item.report) + " words"),
+                        item.sessionId && h("span", null, "Session " + shortId(item.sessionId))
+                      )
+                    ),
+                    h("div", { className: "actions" },
+                      h("button", { className: "icon-btn", title: "Open report", onClick: () => { setCurrentReport(item); setView("workspace"); } }, "↗"),
+                      h("button", { className: "icon-btn", title: "Copy JSON", onClick: () => copyJSON(item) }, "{}"),
+                      item.jobId && h("button", { className: "icon-btn", title: "Download PDF", onClick: () => downloadPDF(item) }, "↓")
+                    )
+                  ),
+                  item.error ? h("p", { className: "summary" }, item.error) : h("p", { className: "summary" }, makePreview(item.report))
+                )
+              ))
+            : h("div", { className: "empty-state" }, allReports.length ? "No reports match the current search and filters." : "Completed reports will be stored here in this browser.")
+        )
+      );
+    }
+
+    function CompareView({ reports, compareLeft, setCompareLeft, compareRight, setCompareRight, leftReport, rightReport, localDiff }) {
+      return h("section", { className: "panel" },
+        h("div", { className: "panel-header" }, h("h3", { className: "panel-title" }, "Compare Reports")),
+        h("div", { className: "panel-body" },
+          reports.length >= 2
+            ? h(React.Fragment, null,
+                h("div", { className: "comparison-grid", style: { marginBottom: 14 } },
+                  h("div", null,
+                    h("label", null, "Baseline"),
+                    h(ReportSelect, { reports, value: compareLeft, onChange: setCompareLeft })
+                  ),
+                  h("div", null,
+                    h("label", null, "Comparison"),
+                    h(ReportSelect, { reports, value: compareRight, onChange: setCompareRight })
+                  )
+                ),
+                h("div", { className: "comparison-grid" },
+                  h("div", { className: "compare-column" },
+                    h("h4", { className: "history-topic" }, leftReport ? leftReport.topic : "Select a report"),
+                    h("div", { className: "report-view" }, leftReport ? leftReport.report : "")
+                  ),
+                  h("div", { className: "compare-column" },
+                    h("h4", { className: "history-topic" }, rightReport ? rightReport.topic : "Select a report"),
+                    h("div", { className: "report-view" }, rightReport ? rightReport.report : "")
+                  )
+                ),
+                h("div", { style: { marginTop: 14 } },
+                  h("label", null, "Line Comparison"),
+                  h("div", { className: "diff-box" }, localDiff.map((row, index) =>
+                    h("div", { key: index, className: row.type === "add" ? "diff-add" : row.type === "remove" ? "diff-remove" : "" }, row.text)
+                  ))
+                )
+              )
+            : h("div", { className: "empty-state" }, "Run at least two completed reports to compare them.")
+        )
+      );
+    }
+
+    function ReportSelect({ reports, value, onChange }) {
+      return h("select", { value, onChange: (e) => onChange(e.target.value) },
+        h("option", { value: "" }, "Select report"),
+        reports.map((item) => h("option", { key: item.id, value: item.id }, formatDate(item.createdAt) + " - " + item.topic.slice(0, 70)))
+      );
+    }
+
+    function StatusBadge({ status, label }) {
+      const normalized = status || "pending";
+      return h("span", { className: "status " + normalized },
+        h("span", { className: "dot " + (normalized === "done" ? "ok" : normalized === "error" || normalized === "blocked" ? "error" : "") }),
+        label || normalized
+      );
+    }
+
+    function DiffBlock({ diff }) {
+      return h("div", { className: "diff-box" }, (diff || "").split("\\n").map((line, index) => {
+        const className = line.startsWith("+") && !line.startsWith("+++") ? "diff-add"
+          : line.startsWith("-") && !line.startsWith("---") ? "diff-remove"
+          : line.startsWith("@@") || line.startsWith("+++") || line.startsWith("---") ? "diff-meta"
+          : "";
+        return h("div", { key: index, className }, line || " ");
+      }));
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+  </script>
+</body>
+</html>
