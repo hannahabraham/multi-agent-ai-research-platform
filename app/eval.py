@@ -13,6 +13,8 @@ _ls_client: Client | None = None
 
 
 def _ls() -> Client:
+    """Return a lazily initialized LangSmith client."""
+
     global _ls_client
     if _ls_client is None:
         _ls_client = Client()
@@ -20,11 +22,15 @@ def _ls() -> Client:
 
 
 def _parse_score(text: str) -> float:
+    """Extract a normalized 0.0 to 1.0 score from an LLM judge response."""
+
     m = re.search(r"SCORE:\s*(\d+(?:\.\d+)?)\s*/\s*10", text, re.IGNORECASE)
     return round(float(m.group(1)) / 10.0, 2) if m else 0.5
 
 
 async def _judge(config: Config, prompt: str) -> str:
+    """Run an evaluation prompt through TensorZero with retry handling."""
+
     return await with_retry(
         lambda: _judge_once(config, prompt),
         max_retries=config.llm_max_retries,
@@ -33,6 +39,8 @@ async def _judge(config: Config, prompt: str) -> str:
 
 
 async def _judge_once(config: Config, prompt: str) -> str:
+    """Send one TensorZero request for an LLM-as-judge prompt."""
+
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(
             f"{config.tensorzero_url}/inference",
@@ -47,6 +55,8 @@ async def _judge_once(config: Config, prompt: str) -> str:
 
 @traceable(run_type="chain", name="eval:relevance")
 async def eval_relevance(config: Config, topic: str, report: str) -> dict:
+    """Score how closely a report answers the requested topic."""
+
     verdict = await _judge(
         config,
         f"Rate how relevant this research report is to the topic '{topic}'.\n"
@@ -58,6 +68,8 @@ async def eval_relevance(config: Config, topic: str, report: str) -> dict:
 
 @traceable(run_type="chain", name="eval:completeness")
 async def eval_completeness(config: Config, report: str) -> dict:
+    """Score whether a report contains all required sections."""
+
     verdict = await _judge(
         config,
         f"Does this research report contain all four required sections: "
@@ -70,6 +82,8 @@ async def eval_completeness(config: Config, report: str) -> dict:
 
 @traceable(run_type="chain", name="eval:hallucination_risk")
 async def eval_hallucination(config: Config, topic: str, report: str) -> dict:
+    """Score the report's risk of fabricated or contradictory claims."""
+
     verdict = await _judge(
         config,
         f"Check this report on '{topic}' for hallucinations — fabricated statistics, "
@@ -83,6 +97,8 @@ async def eval_hallucination(config: Config, topic: str, report: str) -> dict:
 
 @traceable(run_type="chain", name="eval:overall_quality")
 async def eval_quality(config: Config, topic: str, report: str) -> dict:
+    """Score the report's overall usefulness, clarity, and structure."""
+
     verdict = await _judge(
         config,
         f"Rate the overall quality of this research report on '{topic}'.\n"
@@ -137,6 +153,8 @@ async def fetch_recent_topics(limit: int = 10) -> list[str]:
 
 
 async def run_batch_evaluation(config: Config, graph, topics: list[str]) -> list[dict]:
+    """Generate fresh reports for a batch of topics and evaluate each one."""
+
     from app.agents import ResearchState
     from app.memory import ltm_search_related
     results = []

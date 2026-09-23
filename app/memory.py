@@ -11,6 +11,8 @@ _model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 async def session_add(redis: aioredis.Redis, config: Config, session_id: str, role: str, content: str) -> None:
+    """Append a message to short-term Redis session history."""
+
     key = f"session:{session_id}"
     await redis.rpush(key, json.dumps({"role": role, "content": content}))
     await redis.ltrim(key, -config.session_max_messages, -1)
@@ -18,11 +20,15 @@ async def session_add(redis: aioredis.Redis, config: Config, session_id: str, ro
 
 
 async def session_get(redis: aioredis.Redis, session_id: str) -> list[dict]:
+    """Return all stored messages for a Redis-backed session."""
+
     messages = await redis.lrange(f"session:{session_id}", 0, -1)
     return [json.loads(m) for m in messages]
 
 
 async def db_migrate(config: Config) -> None:
+    """Create the reports table, vector extension, and lookup indexes if needed."""
+
     pool = get_pool()
     async with pool.acquire() as conn:
         await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
@@ -45,6 +51,8 @@ async def db_migrate(config: Config) -> None:
 
 
 async def ltm_store(config: Config, topic: str, report: str, report_id: str) -> None:
+    """Persist a report and topic embedding in long-term Postgres memory."""
+
     embedding = await asyncio.to_thread(lambda: _model.encode(topic).tolist())
     pool = get_pool()
     async with pool.acquire() as conn:
@@ -59,6 +67,8 @@ async def ltm_store(config: Config, topic: str, report: str, report_id: str) -> 
 
 
 async def ltm_search(config: Config, topic: str) -> dict | None:
+    """Find a recent highly similar report for exact or near-exact cache reuse."""
+
     embedding = await asyncio.to_thread(lambda: _model.encode(topic).tolist())
     pool = get_pool()
     async with pool.acquire() as conn:
@@ -97,6 +107,8 @@ async def ltm_search_related(config: Config, topic: str) -> str | None:
 
 
 async def ltm_diff(config: Config, topic: str) -> str | None:
+    """Return a compact unified diff between the two latest reports for a topic."""
+
     pool = get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(

@@ -35,6 +35,8 @@ async def _init_pyrit():
 
 
 async def _get_redis() -> aioredis.Redis | None:
+    """Return a lazily initialized Redis client when persistence is configured."""
+
     global _redis
     if REDIS_URL and _redis is None:
         _redis = await aioredis.from_url(REDIS_URL, decode_responses=True)
@@ -45,6 +47,8 @@ class ResearchAgentTarget:
     """Wraps the research agent API for PyRIT attack runners."""
 
     async def _call_api(self, prompt: str) -> str:
+        """Submit one prompt to the target API and poll until a result is ready."""
+
         try:
             async with httpx.AsyncClient(timeout=90) as client:
                 r1 = await client.post(
@@ -155,6 +159,8 @@ async def _run_attack_type(attack_type: str, prompts: list[str], base_risk: int)
 # ─── Redis persistence ────────────────────────────────────────────────────────
 
 async def _persist_results(results: list[dict]) -> None:
+    """Persist attack results to Redis when a Redis URL is available."""
+
     r = await _get_redis()
     if r:
         await r.setex(RESULTS_KEY, RESULTS_TTL, json.dumps(results))
@@ -174,6 +180,8 @@ async def _load_results() -> list[dict]:
 
 @app.get("/run-attacks")
 async def run_attacks(types: str = "all"):
+    """Run selected red-team attack prompt sets against the research API."""
+
     global _running
     _running = True
     results = []
@@ -197,11 +205,15 @@ async def run_attacks(types: str = "all"):
 
 @app.get("/results")
 async def get_results():
+    """Return persisted attack results plus current running state."""
+
     return {"results": await _load_results(), "running": _running}
 
 
 @app.get("/status")
 async def status():
+    """Return dashboard status, target health, and attack summary counts."""
+
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             r = await client.get(f"{TARGET_URL}/health")
@@ -223,10 +235,14 @@ async def status():
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():
+    """Serve the browser dashboard HTML."""
+
     return HTMLResponse(content=_build_html())
 
 
 def _build_html() -> str:
+    """Return the self-contained HTML, CSS, and JavaScript dashboard."""
+
     return """<!DOCTYPE html>
 <html>
 <head>

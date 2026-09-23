@@ -33,6 +33,8 @@ graph = None
 
 
 async def _rate_limit(request: Request) -> None:
+    """Apply a fixed-window per-IP rate limit using Redis counters."""
+
     client_ip = request.client.host
     key = f"ratelimit:{client_ip}"
     count = await redis_client.incr(key)
@@ -43,6 +45,8 @@ async def _rate_limit(request: Request) -> None:
 
 
 async def _worker_loop():
+    """Continuously consume queued research jobs and launch processors."""
+
     await ensure_group(redis_client, config)
     while True:
         try:
@@ -54,6 +58,8 @@ async def _worker_loop():
 
 
 async def _process_job(data: dict, msg_id: str):
+    """Run one queued research job through cache, memory, agents, and outputs."""
+
     job_id = data["job_id"]
     topic = data["topic"]
     session_id = data["session_id"]
@@ -128,6 +134,8 @@ async def _process_job(data: dict, msg_id: str):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Initialize shared services at startup and close them at shutdown."""
+
     global redis_client, graph
     redis_client = await aioredis.from_url(config.redis_url, decode_responses=True)
     await init_pool(config)
@@ -150,6 +158,8 @@ app.add_middleware(
 
 
 class ResearchRequest(BaseModel):
+    """Request body for starting a research job."""
+
     topic: str
     session_id: str = ""
     output_format: str = "text"
@@ -157,11 +167,15 @@ class ResearchRequest(BaseModel):
 
 @app.get("/")
 async def frontend():
+    """Serve the static browser UI."""
+
     return FileResponse("/app/index.html")
 
 
 @app.get("/health")
 async def health():
+    """Report API health, including Redis connectivity."""
+
     try:
         await redis_client.ping()
         redis_ok = True
@@ -175,6 +189,8 @@ async def health():
 
 @app.post("/research", dependencies=[Depends(require_api_key), Depends(_rate_limit)])
 async def start_research(req: ResearchRequest):
+    """Validate and enqueue a new research request."""
+
     ok, reason = await validate_input(config, req.topic)
     if not ok:
         raise HTTPException(status_code=400, detail=reason)
@@ -186,6 +202,8 @@ async def start_research(req: ResearchRequest):
 
 @app.get("/result/{job_id}", dependencies=[Depends(require_api_key)])
 async def get_job_result(job_id: str):
+    """Return a completed job result or a pending status."""
+
     result = await get_result(redis_client, config, job_id)
     if result is None:
         return {"status": "pending"}
@@ -194,18 +212,24 @@ async def get_job_result(job_id: str):
 
 @app.get("/session/{session_id}", dependencies=[Depends(require_api_key)])
 async def get_session(session_id: str):
+    """Return short-term conversation history for a session."""
+
     messages = await session_get(redis_client, session_id)
     return {"session_id": session_id, "messages": messages}
 
 
 @app.get("/diff/{topic}", dependencies=[Depends(require_api_key)])
 async def report_diff(topic: str):
+    """Return the latest stored report diff for a topic."""
+
     diff = await get_report_diff(config, topic)
     return {"topic": topic, "diff": diff or "No previous report found."}
 
 
 @app.get("/result/{job_id}/pdf", dependencies=[Depends(require_api_key)])
 async def download_pdf(job_id: str):
+    """Return a completed report as a generated PDF attachment."""
+
     result = await get_result(redis_client, config, job_id)
     if not result or result.get("status") != "done":
         raise HTTPException(status_code=404, detail="Report not ready")
@@ -219,6 +243,8 @@ async def download_pdf(job_id: str):
 
 @app.get("/stats", dependencies=[Depends(require_api_key)])
 async def stats():
+    """Return operational Redis and configuration statistics."""
+
     info = await redis_client.info()
     keys = await redis_client.dbsize()
     cache_keys = len([k async for k in redis_client.scan_iter("semantic:*")])
@@ -239,6 +265,8 @@ async def stats():
 
 @app.get("/evaluate/{job_id}", dependencies=[Depends(require_api_key)])
 async def evaluate_job(job_id: str):
+    """Run LLM-as-judge evaluation for an already completed job."""
+
     result = await get_result(redis_client, config, job_id)
     if not result or result.get("status") != "done":
         raise HTTPException(status_code=404, detail="Job not done yet")
@@ -247,11 +275,15 @@ async def evaluate_job(job_id: str):
 
 
 class BatchEvalRequest(BaseModel):
+    """Request body for running batch evaluations over selected topics."""
+
     topics: list[str] = []
 
 
 @app.post("/run-evaluation", dependencies=[Depends(require_api_key)])
 async def trigger_batch_evaluation(req: BatchEvalRequest):
+    """Start a background batch evaluation run."""
+
     topics = req.topics if req.topics else await fetch_recent_topics()
     if not topics:
         raise HTTPException(status_code=400, detail="No topics found. Submit at least one research job first.")

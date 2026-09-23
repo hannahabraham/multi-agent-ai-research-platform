@@ -5,6 +5,8 @@ from app.retry import with_retry
 
 
 def _apply_guardrail_sync(config: Config, text: str, source: str) -> dict:
+    """Call the Bedrock Guardrails API for either input or output text."""
+
     client = boto3.client("bedrock-runtime", region_name=config.aws_region)
     return client.apply_guardrail(
         guardrailIdentifier=config.bedrock_guardrail_id,
@@ -15,6 +17,8 @@ def _apply_guardrail_sync(config: Config, text: str, source: str) -> dict:
 
 
 async def validate_input(config: Config, text: str) -> tuple[bool, str]:
+    """Check user-provided text against the configured input guardrail."""
+
     response = await with_retry(
         lambda: asyncio.to_thread(_apply_guardrail_sync, config, text, "INPUT"),
         max_retries=config.llm_max_retries,
@@ -26,6 +30,8 @@ async def validate_input(config: Config, text: str) -> tuple[bool, str]:
 
 
 async def validate_output(config: Config, text: str) -> tuple[bool, str]:
+    """Check generated report text against the configured output guardrail."""
+
     response = await with_retry(
         lambda: asyncio.to_thread(_apply_guardrail_sync, config, text, "OUTPUT"),
         max_retries=config.llm_max_retries,

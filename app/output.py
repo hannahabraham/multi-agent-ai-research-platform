@@ -11,6 +11,8 @@ from app.memory import _model
 
 
 def generate_pdf(title: str, content: str) -> bytes:
+    """Render report content into a simple downloadable PDF document."""
+
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
@@ -31,6 +33,8 @@ def generate_pdf(title: str, content: str) -> bytes:
 
 
 def generate_json_report(topic: str, report: str, report_id: str, created_at: datetime) -> dict:
+    """Build a structured JSON representation of a generated report."""
+
     return {
         "report_id": report_id,
         "topic": topic,
@@ -42,6 +46,8 @@ def generate_json_report(topic: str, report: str, report_id: str, created_at: da
 
 
 async def get_report_diff(config: Config, topic: str) -> str | None:
+    """Find two similar recent reports and return their compact unified diff."""
+
     embedding = await asyncio.to_thread(lambda: _model.encode(topic).tolist())
     pool = get_pool()
     async with pool.acquire() as conn:

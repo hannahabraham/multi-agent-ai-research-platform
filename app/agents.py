@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class ResearchState(TypedDict):
+    """State object passed between LangGraph nodes during a research job."""
+
     topic: str
     session_id: str
     session_history: list[dict]  # prior conversation turns passed into agent
@@ -24,6 +26,8 @@ class ResearchState(TypedDict):
 
 
 async def _tz_call(config: Config, function_name: str, message: str) -> str:
+    """Call a TensorZero function with the configured retry policy."""
+
     return await with_retry(
         lambda: _tz_call_once(config, function_name, message),
         max_retries=config.llm_max_retries,
@@ -32,6 +36,8 @@ async def _tz_call(config: Config, function_name: str, message: str) -> str:
 
 
 async def _tz_call_once(config: Config, function_name: str, message: str) -> str:
+    """Send one inference request to TensorZero and return the model text."""
+
     async with httpx.AsyncClient(timeout=120) as client:
         response = await client.post(
             f"{config.tensorzero_url}/inference",
@@ -48,10 +54,14 @@ class SearchAgent:
     """Finds key facts. Receives session history so it understands what the user has asked before."""
 
     def __init__(self, config: Config):
+        """Store shared runtime configuration for TensorZero calls."""
+
         self.config = config
 
     @traceable(run_type="tool", name="agent:search")
     async def run(self, topic: str, session_history: list[dict]) -> str:
+        """Research a topic, optionally using recent session messages for context."""
+
         logger.info(f"SearchAgent: researching '{topic}'")
 
         history_ctx = ""
@@ -73,10 +83,14 @@ class SummarizeAgent:
     """Condenses raw search results into structured bullet points."""
 
     def __init__(self, config: Config):
+        """Store shared runtime configuration for TensorZero calls."""
+
         self.config = config
 
     @traceable(run_type="tool", name="agent:summarize")
     async def run(self, search_results: list[str]) -> str:
+        """Summarize one or more raw research result blocks."""
+
         logger.info("SummarizeAgent: condensing search results")
         combined = "\n\n".join(search_results)
         return await _tz_call(
@@ -94,10 +108,14 @@ class WriterAgent:
     """
 
     def __init__(self, config: Config):
+        """Store shared runtime configuration for TensorZero calls."""
+
         self.config = config
 
     @traceable(run_type="tool", name="agent:writer")
     async def run(self, topic: str, summaries: list[str], ltm_context: str) -> str:
+        """Draft the final report from summaries and optional long-term-memory context."""
+
         logger.info("WriterAgent: drafting report")
         combined = "\n\n".join(summaries)
 
@@ -123,10 +141,14 @@ class CriticAgent:
     """Verifies factual consistency and logical coherence of the report."""
 
     def __init__(self, config: Config):
+        """Store shared runtime configuration for TensorZero calls."""
+
         self.config = config
 
     @traceable(run_type="tool", name="agent:critic")
     async def run(self, report: str) -> bool:
+        """Return whether the critic judges a report ready to publish."""
+
         logger.info("CriticAgent: verifying report")
         check = await _tz_call(
             self.config,
@@ -146,6 +168,8 @@ class OrchestratorAgent:
     """
 
     def __init__(self, config: Config):
+        """Create sub-agents used by the research workflow."""
+
         self.config = config
         self.search_agent = SearchAgent(config)
         self.summarize_agent = SummarizeAgent(config)
@@ -154,16 +178,22 @@ class OrchestratorAgent:
 
     @traceable(run_type="chain", name="orchestrator:search")
     async def search_node(self, state: ResearchState) -> dict:
+        """Run the search agent and write its result into graph state."""
+
         result = await self.search_agent.run(state["topic"], state.get("session_history", []))
         return {"search_results": [result]}
 
     @traceable(run_type="chain", name="orchestrator:summarize")
     async def summarize_node(self, state: ResearchState) -> dict:
+        """Run the summarizer over accumulated search results."""
+
         summary = await self.summarize_agent.run(state["search_results"])
         return {"summaries": [summary]}
 
     @traceable(run_type="chain", name="orchestrator:write")
     async def write_node(self, state: ResearchState) -> dict:
+        """Run the writer and increment the report-generation iteration count."""
+
         report = await self.writer_agent.run(
             state["topic"],
             state["summaries"],
@@ -173,6 +203,8 @@ class OrchestratorAgent:
 
     @traceable(run_type="chain", name="orchestrator:verify")
     async def verify_node(self, state: ResearchState) -> dict:
+        """Run the critic and store its boolean verdict in graph state."""
+
         verified = await self.critic_agent.run(state["report"])
         return {"verified": verified}
 
@@ -185,6 +217,8 @@ class OrchestratorAgent:
 
 
 def build_graph(config: Config):
+    """Build and compile the LangGraph research workflow."""
+
     orchestrator = OrchestratorAgent(config)
     workflow = StateGraph(ResearchState)
 

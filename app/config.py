@@ -7,6 +7,8 @@ from functools import lru_cache
 
 @lru_cache(maxsize=1)
 def _load_secret() -> dict:
+    """Load and cache application configuration from AWS Secrets Manager."""
+
     region = os.environ.get("AWS_REGION", "us-east-1")
     client = boto3.client("secretsmanager", region_name=region)
     response = client.get_secret_value(SecretId="research-agent/config")
@@ -14,7 +16,11 @@ def _load_secret() -> dict:
 
 
 class Config:
+    """Runtime configuration loaded from the shared research-agent secret."""
+
     def __init__(self):
+        """Populate strongly typed settings used across the API and workers."""
+
         data = _load_secret()
 
         # AWS
